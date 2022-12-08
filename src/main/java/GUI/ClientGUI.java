@@ -4,48 +4,31 @@
  */
 package GUI;
 
+import FTP.treeCellRenderer;
+import FTP.serverTreeCellRenderer;
 import FTP.sendFile;
 import FTP.deleteFileOrFolder;
 import FTP.downloadFile;
 import FTP.filter;
 import FTP.renameFileorFolder;
 import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.WindowConstants;
 import org.apache.commons.net.ftp.*;
 import FTP.*;
-import java.awt.Component;
+import java.awt.Image;
 import java.awt.event.*;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
-import java.util.Vector;
 import javax.swing.*;
 import javax.swing.SwingUtilities;
-import javax.swing.event.AncestorListener;
-import javax.swing.filechooser.FileSystemView;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.tree.*;
 import org.openide.awt.DropDownButtonFactory;
@@ -61,6 +44,7 @@ public class ClientGUI extends javax.swing.JFrame {
      * Creates new form ClientGUI
      */
     public ClientGUI() {
+        this.queueList = new ArrayList<String>();
         initComponents();
     }
 
@@ -100,6 +84,8 @@ public class ClientGUI extends javax.swing.JFrame {
         connectHistoryTB = new javax.swing.JToolBar();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setTitle("FTP Client");
+        setIconImage(new ImageIcon(getClass().getClassLoader().getResource("img/transfer.png")).getImage());
 
         String colum_header[]= {"Local file path","Remote file path","Size"};
         queueTableModel = new DefaultTableModel(colum_header,0);
@@ -154,16 +140,24 @@ public class ClientGUI extends javax.swing.JFrame {
         serverTreelb.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
 
         serverTree.setModel(serverTreeModel);
+        serverTree.setCellRenderer(new serverTreeCellRenderer());
         serverTree.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 serverTreeMouseClicked(evt);
+            }
+        });
+        serverTree.addTreeWillExpandListener(new javax.swing.event.TreeWillExpandListener() {
+            public void treeWillCollapse(javax.swing.event.TreeExpansionEvent evt)throws javax.swing.tree.ExpandVetoException {
+            }
+            public void treeWillExpand(javax.swing.event.TreeExpansionEvent evt)throws javax.swing.tree.ExpandVetoException {
+                serverTreeTreeWillExpand(evt);
             }
         });
         jScrollPane1.setViewportView(serverTree);
 
         addItemToClientTree();
         clientTree.setModel(clientTreeModel);
-        clientTree.setRootVisible(false);
+        clientTree.setCellRenderer(new treeCellRenderer());
         clientTree.addTreeExpansionListener(new javax.swing.event.TreeExpansionListener() {
             public void treeCollapsed(javax.swing.event.TreeExpansionEvent evt) {
             }
@@ -237,6 +231,7 @@ public class ClientGUI extends javax.swing.JFrame {
 
         Portlb.setText("Port");
 
+        Porttf.setText("21");
         Porttf.setName(""); // NOI18N
         Porttf.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -244,8 +239,9 @@ public class ClientGUI extends javax.swing.JFrame {
             }
         });
 
+        notifiTextArea.setEditable(false);
         notifiTextArea.setColumns(20);
-        notifiTextArea.setRows(5);
+        notifiTextArea.setRows(4);
         jScrollPane4.setViewportView(notifiTextArea);
 
         connectBtn.setText("Connect");
@@ -296,6 +292,8 @@ public class ClientGUI extends javax.swing.JFrame {
         addMenuItem(logFile);
         ImageIcon icon = new ImageIcon();
         JButton dropDownButton = DropDownButtonFactory.createDropDownButton(icon, popupMenu);
+        ImageIcon dropDownButtonIcon = new ImageIcon(getClass().getClassLoader().getResource("img/plus.png"));
+        dropDownButton.setIcon(dropDownButtonIcon);
         connectHistoryTB.add(dropDownButton);
         connectHistoryTB.setRollover(true);
         connectHistoryTB.setEnabled(false);
@@ -413,19 +411,31 @@ public class ClientGUI extends javax.swing.JFrame {
             tempPath = tempPath.replaceAll("/ ", "/");
         }
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
-        
         File file = new File(tempPath);
-        System.out.println("WillExpand: " + file);
         try {
             addClientTreeChild(file, node);
-        } catch (Exception e) {
-        }
+        } catch (Exception e) {}
     }//GEN-LAST:event_clientTreeTreeWillExpand
 
     private void queueTableMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_queueTableMouseClicked
         // TODO add your handling code here:
         if (SwingUtilities.isRightMouseButton(evt)) {queueTableRightClick(evt);}
     }//GEN-LAST:event_queueTableMouseClicked
+
+    private void serverTreeTreeWillExpand(javax.swing.event.TreeExpansionEvent evt)throws javax.swing.tree.ExpandVetoException {//GEN-FIRST:event_serverTreeTreeWillExpand
+        TreePath path = evt.getPath();
+        String tempPath = "";
+        if (path != null) {
+            tempPath = path.toString().replace("]", "");
+            tempPath = tempPath.replace("[", "").replaceAll(",", "/");
+            tempPath = tempPath.replaceAll("/ ", "/");
+        }
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+        File file = new File(tempPath);
+        
+        folderPath = findFilePath(file.getName(), pathList);
+        addChilde(folderPath, node);
+    }//GEN-LAST:event_serverTreeTreeWillExpand
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -459,25 +469,25 @@ public class ClientGUI extends javax.swing.JFrame {
     private FTPClient ftpClient = new FTPClient();
     private String notifyMessage;
     private List<String> pathList;
-    private DefaultMutableTreeNode root = new DefaultMutableTreeNode("");
+    private final DefaultMutableTreeNode root = new DefaultMutableTreeNode("");
     private DefaultTreeModel serverTreeModel;
     private DefaultTreeModel clientTreeModel;
     private String folderPath;
-    private List<String> queueList = new ArrayList<String>();
-    private JPopupMenu popupMenu = new JPopupMenu();
-    private JMenuItem clearHistory = new JMenuItem("Clear History");
-    private JMenuItem clearConnect = new JMenuItem("Clear Connect Bar");
+    private final List<String> queueList;
+    private final JPopupMenu popupMenu = new JPopupMenu();
+    private final JMenuItem clearHistory = new JMenuItem("Clear History");
+    private final JMenuItem clearConnect = new JMenuItem("Clear Connect Bar");
     
     private  DefaultTableModel queueTableModel = new DefaultTableModel();
     
-    private connectServer s = new connectServer();
-    private renameFileorFolder ff = new renameFileorFolder();
-    private downloadFile downloadFile = new downloadFile();
-    private deleteFileOrFolder deleteFileOrFolder = new deleteFileOrFolder();
-    private sendFile sendFile = new sendFile();
+    private final connectServer s = new connectServer();
+    private final renameFileorFolder ff = new renameFileorFolder();
+    private final downloadFile downloadFile = new downloadFile();
+    private final deleteFileOrFolder deleteFileOrFolder = new deleteFileOrFolder();
+    private final sendFile sendFile = new sendFile();
     
     /**
-     * @param args the command line arguments
+     * @param av
      */
     public static void main(String[] av) {
         /* Set the Nimbus look and feel */
@@ -504,10 +514,8 @@ public class ClientGUI extends javax.swing.JFrame {
         //</editor-fold>
         
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new ClientGUI().setVisible(true);
-            }
+        java.awt.EventQueue.invokeLater(() -> {
+            new ClientGUI().setVisible(true);
         });
     }
     
@@ -516,32 +524,44 @@ public class ClientGUI extends javax.swing.JFrame {
         boolean valid = loginValidate();
         if (!valid) {
             notification(error);
-        } else {
-            try {
+            return;
+        }
+        try {
+            if(connectBtn.getText().equals("Connect")){
+                ftpClient = s.connectFTPServer(Servertf.getText(), Usernametf.getText(), Passtf.getText());
                 if (!ftpClient.isConnected()) {
+                    notifyMessage = "Connect to "+Usernametf.getText()+"@"+Servertf.getText()+"  Fail";
+                    notification(notifyMessage);
+                }else{
+                    if(ftpClient.getReplyCode() == 530){
+                        notifyMessage = "Username or Password wrong";
+                        notification(notifyMessage);
+                        return;
+                    }
                     notifyMessage = "Connect to "+Usernametf.getText()+"@"+Servertf.getText()+"  Successful";
                     notification(notifyMessage);
                     recordLoginInfo();
                     ftpClient.setAutodetectUTF8(true);
-                    ftpClient = s.connectFTPServer(Servertf.getText(), Usernametf.getText(), Passtf.getText());
                     ftpClient.setFileType(FTP.BINARY_FILE_TYPE);
                     pathList = s.getRealPath();
                     root.removeAllChildren();
                     List<FTPFile> listFtpFiles = s.getListFileFromFTPServer("");
                     addItemToTree(listFtpFiles);
                     connectBtn.setText("Disconnect");
-                } else {
-                    notifyMessage = "Disconnect Successfull";
-                    notification(notifyMessage);
-                    ftpClient.disconnect();
-                    connectBtn.setText("Connect");
-                    root.removeAllChildren();
-                    serverTree.updateUI();
                 }
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            }else{
+                notifyMessage = "Disconnect Successfull";
+                notification(notifyMessage);
+                ftpClient.logout();
+                ftpClient.disconnect();
+                connectBtn.setText("Connect");
+                root.removeAllChildren();
+                serverTree.updateUI();
             }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
+
     }
     //Lưu thông tin đăng nhập 
     private void recordLoginInfo(){
@@ -558,22 +578,22 @@ public class ClientGUI extends javax.swing.JFrame {
             user.add(Servertf.getText());
             user.add(Porttf.getText());
             
-            Scanner myReader = new Scanner(logFile);
-            boolean exist = false;
-            while (myReader.hasNextLine()) {
-                String data = myReader.nextLine();
-                if (user.toString().equals(data)) {
-                    exist = true;
+            boolean exist;
+            try (Scanner myReader = new Scanner(logFile)) {
+                exist = false;
+                while (myReader.hasNextLine()) {
+                    String data = myReader.nextLine();
+                    if (user.toString().equals(data)) {
+                        exist = true;
+                    }
                 }
-                System.out.println(data);
             }
-            myReader.close();
             
             if(!exist){
-                BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true));
-                writer.write(user.toString());
-                writer.newLine();
-                writer.close();
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
+                    writer.write(user.toString());
+                    writer.newLine();
+                }
             }
             
             popupMenu.removeAll();
@@ -594,17 +614,20 @@ public class ClientGUI extends javax.swing.JFrame {
         Servertf.setBackground(Color.white);
         if (Usernametf.getText().length() == 0) {
             error = error + "User Name is mandatory\n";
-            Usernametf.setBackground(Color.red);
+            Usernametf.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 1, Color.red));
+//            Usernametf.setBackground(Color.red);
         }
 
         if (Passtf.getText().length() == 0) {
             error = error + "Password is mandatory\n";
-            Passtf.setBackground(Color.red);
+            Passtf.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 1, Color.red));
+//            Passtf.setBackground(Color.red);
         }
 
         if (Servertf.getText().length() == 0) {
             error = error + "Server is mandatory\n";
-            Servertf.setBackground(Color.red);
+            Servertf.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 1, Color.red));
+//            Servertf.setBackground(Color.red);
         }
         // Show the errorText in a message box, or in a label, or ...
         return error.isEmpty();
@@ -625,7 +648,8 @@ public class ClientGUI extends javax.swing.JFrame {
             //showChildren(node);
             //
             if (ftpFile.isDirectory()) {
-                addChilde(ftpFile, node);
+                DefaultMutableTreeNode node1 = new DefaultMutableTreeNode("temp");
+                node.add(node1);
             }
             //
         }
@@ -633,22 +657,21 @@ public class ClientGUI extends javax.swing.JFrame {
         serverTree.setVisible(true);
     }
     //add file con và server tree
-    private void addChilde(FTPFile ftpFile, DefaultMutableTreeNode node) {
-        folderPath = findFilePath(ftpFile.getName(), pathList);
-        List<FTPFile> ftpFileList1 = s.getListFileFromFTPServer(folderPath);
+    private void addChilde(String ftpFilePath, DefaultMutableTreeNode node) {
+        node.removeAllChildren();
+        List<FTPFile> ftpFileList1 = s.getListFileFromFTPServer(ftpFilePath);
         for (FTPFile file : ftpFileList1) {
             if (file.isDirectory()) {
                 DefaultMutableTreeNode node1 = new DefaultMutableTreeNode(file.getName());
+                DefaultMutableTreeNode node2 = new DefaultMutableTreeNode("temp");
                 node.add(node1);
-                addChilde(file, node1);
+                node1.add(node2);
             } else node.add(new DefaultMutableTreeNode(file.getName()));
         }
     }
     //add item vào client tree
     private void addItemToClientTree(){
-        clientTree.setCellRenderer(new treeCellRenderer());
-        clientTreeModel= new DefaultTreeModel(root);
-        
+        clientTreeModel = new DefaultTreeModel(root);
         for (File file : File.listRoots()) {
             DefaultMutableTreeNode node = new DefaultMutableTreeNode(file);
             node.add(new DefaultMutableTreeNode("temp"));
@@ -658,28 +681,14 @@ public class ClientGUI extends javax.swing.JFrame {
     //add file con vào client tree
     private void addClientTreeChild(File file,DefaultMutableTreeNode node){
         node.removeAllChildren();
-//        if(file.getName().equals("Desktop")){
-//            FileSystemView fileSystemView = FileSystemView.getFileSystemView();
-//            for(File file1 : fileSystemView.getRoots()){
-//                for(File f : file1.listFiles()){
-//                    DefaultMutableTreeNode node1 = new DefaultMutableTreeNode(f.getName());
-//                    if(f.isDirectory()){
-//                        DefaultMutableTreeNode node2 = new DefaultMutableTreeNode("temp");
-//                        node1.add(node2);
-//                    }
-//                    node.add(node1);      
-//                }
-//            }
-//        }else{
-            for(File f : file.listFiles()){
-                DefaultMutableTreeNode node1 = new DefaultMutableTreeNode(f.getName());
-                if(f.isDirectory()){
-                    DefaultMutableTreeNode node2 = new DefaultMutableTreeNode("temp");
-                    node1.add(node2);
-                }
-                node.add(node1);            
-            }            
-//        }
+        for(File f : file.listFiles()){
+            DefaultMutableTreeNode node1 = new DefaultMutableTreeNode(f.getName());
+            if(f.isDirectory()){
+                DefaultMutableTreeNode node2 = new DefaultMutableTreeNode("temp");
+                node1.add(node2);
+            }
+            node.add(node1);            
+        }   
     }
     //tìm đường dẫn ở server
     private String findFilePath(String fileName, List<String> l) {
@@ -695,13 +704,23 @@ public class ClientGUI extends javax.swing.JFrame {
     }
     //chức năng hiển thị menu ở server tree
     private void serverTreeRightClick(MouseEvent e){
+        ImageIcon icon;
         JPopupMenu menu = new JPopupMenu();
         JMenuItem jmnremane = new JMenuItem("Rename");
+        icon = new ImageIcon(getClass().getClassLoader().getResource("img/rename.png"));
+        jmnremane.setIcon(icon);
         JMenuItem jmndownload = new JMenuItem("Download");
+        icon = new ImageIcon(getClass().getClassLoader().getResource("img/download.png"));
+        jmndownload.setIcon(icon);
         JMenuItem jmndelete = new JMenuItem("Delete");
+        icon = new ImageIcon(getClass().getClassLoader().getResource("img/delete.png"));
+        jmndelete.setIcon(icon);
         JMenuItem jmnNewFolder = new JMenuItem("New folder");
+        icon = new ImageIcon(getClass().getClassLoader().getResource("img/open-folder.png"));
+        jmnNewFolder.setIcon(icon);
         JMenuItem jmnAddToQ = new JMenuItem("Add to Queue");
-        
+        icon = new ImageIcon(getClass().getClassLoader().getResource("img/plus.png"));
+        jmnAddToQ.setIcon(icon);
         //lấy vị trí chuột và select item ở tree trên vị trí chuột đó
         JTree list = (JTree) e.getSource();
         int row = list.getRowForLocation(e.getPoint().x, e.getPoint().y);
@@ -731,103 +750,94 @@ public class ClientGUI extends javax.swing.JFrame {
         menu.show(this, getMousePosition().x, getMousePosition().y);
         
         //addToQueue btn function
-        jmnAddToQ.addActionListener(new ActionListener(){
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                try {
-                    ftpClient.sendCommand("SIZE",fileName.toString());
-                    String reply = ftpClient.getReplyString();
-                    String[] r = reply.split(" ");
-                    queueList.add(fileName.toString());
-                    DefaultTableModel model = (DefaultTableModel) queueTable.getModel();
-                    model.addRow(new Object[]{System.getProperty("user.home") + "\\Downloads", fileName, r[1] + " bytes"});
-                    notification("Add "+fileName+" to Queue");
-                    queueTable.setModel(model);
-                } catch (IOException ex) {
-                    Exceptions.printStackTrace(ex);
-                }
+        jmnAddToQ.addActionListener((ActionEvent e1) -> {
+            try {
+                ftpClient.sendCommand("SIZE",fileName.toString());
+                String reply = ftpClient.getReplyString();
+                String[] r = reply.split(" ");
+                queueList.add(fileName.toString());
+                DefaultTableModel model = (DefaultTableModel) queueTable.getModel();
+                model.addRow(new Object[]{System.getProperty("user.home") + "\\Downloads"+fileName, fileName, r[1] + " bytes"});
+                notification("Add "+fileName+" to Queue");
+                queueTable.setModel(model);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
             }
         });
         
         
         //nút rename
         String finalFilePath = filePath;
-        jmnremane.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) list.getLastSelectedPathComponent();
-                list.putClientProperty("JTree.lineStyle", "Angled");
-                JTextField textField = new JTextField();
-                TreeCellEditor editor = new DefaultCellEditor(textField);
-                list.setCellEditor(editor);
-                list.setEditable(true);
-                list.startEditingAtPath(treePath);
-                textField.addFocusListener(new FocusAdapter() {
-                    @Override
-                    public void focusLost(FocusEvent e) {
-                        super.focusLost(e);
-                        JTextField jtf = (JTextField) e.getSource();
-                        boolean success = ff.renaming(ftpClient, finalFilePath, jtf.getText());
-                        if (success){
-                            notifyMessage = "Rename "+finalFilePath+" to /"+jtf.getText()+" Successfull";
-                        }else notifyMessage = "Rename Fail";
-                        list.setEditable(false);
-                        notification(notifyMessage);
+        jmnremane.addActionListener((ActionEvent e1) -> {
+            DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) list.getLastSelectedPathComponent();
+            list.putClientProperty("JTree.lineStyle", "Angled");
+            JTextField textField = new JTextField();
+            TreeCellEditor editor = new DefaultCellEditor(textField);
+            list.setCellEditor(editor);
+            list.setEditable(true);
+            list.startEditingAtPath(treePath);
+            textField.addFocusListener(new FocusAdapter() {
+                @Override
+                public void focusLost(FocusEvent e2) {
+                    super.focusLost(e2);
+                    JTextField jtf = (JTextField) e2.getSource();
+                    boolean success = ff.renaming(ftpClient, finalFilePath, jtf.getText());
+                    if (success){
+                        notifyMessage = "Rename "+finalFilePath+" to /"+jtf.getText()+" Successfull";
+                    }else notifyMessage = "Rename Fail";
+                    list.setEditable(false);
+                    notification(notifyMessage);
+                    refresh();
+                }
+            });
+            new Thread() {
+                @Override
+                public void run() {
+                    if (selectedNode.isLeaf()) {
+                        textField.setNavigationFilter(new filter(fileName.getName().lastIndexOf("."), textField));
                     }
-                });
-
-                new Thread(){
-                    @Override
-                    public void run() {
-                        if (selectedNode.isLeaf()) {
-                            textField.setNavigationFilter(new filter(fileName.getName().lastIndexOf("."), textField));
+                    textField.addKeyListener(new KeyAdapter() {
+                        @Override
+                        public void keyTyped(KeyEvent e3) {
+                            super.keyTyped(e3);
+                            textField.setNavigationFilter(new filter(textField.getText().lastIndexOf("."), textField));
                         }
-                        textField.addKeyListener(new KeyAdapter() {
-                            @Override
-                            public void keyTyped(KeyEvent e) {
-                                super.keyTyped(e);
-                                textField.setNavigationFilter(new filter(textField.getText().lastIndexOf("."), textField));
-                            }
-                        });
-                    };
-                }.start();
-            }
+                    });
+                }
+            }.start();
         });
 
         //nút download
-        jmndownload.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                notification("Downloading");
-                String home = System.getProperty("user.home");
-                try {
-                    downloadFile.deter(fileName.toString(), "", home+"\\Downloads", ftpClient);
-                    notifyMessage = "Download File "+fileName.getName()+" Successfull";
-                    notification(notifyMessage);
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
+        jmndownload.addActionListener((ActionEvent e1) -> {
+            notification("Downloading");
+            String home = System.getProperty("user.home");
+            try {
+                downloadFile.deter(fileName.toString(), "", home+"/Downloads", ftpClient);
+                notifyMessage = "Download File "+fileName.getName()+" Successfull";
+                notification(notifyMessage);
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
             }
         });
 
         //nút delete
         String finalFilePath1 = filePath;
-        jmndelete.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) list.getLastSelectedPathComponent();
-                boolean leaf = selectedNode.isLeaf();
-                notifyMessage = deleteFileOrFolder.deleteDeter(finalFilePath1, ftpClient, leaf);
-                notification(notifyMessage);
-                selectedNode.removeFromParent();
-                serverTree.updateUI();
-            }
+        jmndelete.addActionListener((ActionEvent e1) -> {
+            DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) list.getLastSelectedPathComponent();
+            boolean leaf = selectedNode.isLeaf();
+            notifyMessage = deleteFileOrFolder.deleteDeter(finalFilePath1, ftpClient, leaf);
+            notification(notifyMessage);
+            selectedNode.removeFromParent();
+            serverTree.updateUI();
+            refresh();
         });
     }
     //chức năng hiển thị menu ở client tree
     private void clientTreeRightClick(MouseEvent e) {
         JPopupMenu clientMenu = new JPopupMenu();
         JMenuItem jmnUpload = new JMenuItem("Upload");
+        ImageIcon icon = new ImageIcon(getClass().getClassLoader().getResource("img/upload.png"));
+        jmnUpload.setIcon(icon);
         clientMenu.add(jmnUpload);
         
         JTree list = (JTree) e.getSource();
@@ -845,17 +855,14 @@ public class ClientGUI extends javax.swing.JFrame {
         list.setSelectionRow(row);
         clientMenu.show(this, getMousePosition().x, getMousePosition().y);
         
-        jmnUpload.addActionListener(new ActionListener(){
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                try {
-                    sendFile.deterSend(ftpClient, "\\" + fileName.getName(), fileName.toString(), "");
-                    notifyMessage = "Upload Successfull";
-                    notification(notifyMessage);
-                    refresh();
-                } catch (IOException ex) {
-                    Exceptions.printStackTrace(ex);
-                }
+        jmnUpload.addActionListener((ActionEvent e1) -> {
+            try {
+                sendFile.deterSend(ftpClient, "\\" + fileName.getName(), fileName.toString(), "");
+                notifyMessage = "Upload Successfull";
+                notification(notifyMessage);
+                refresh();
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
             }
         });
     }
@@ -868,14 +875,12 @@ public class ClientGUI extends javax.swing.JFrame {
     //thêm item vào quick connect tool bar
     private void addMenuItem(File logFile){
         try{
-            Scanner myReader = new Scanner(logFile);
-            while (myReader.hasNextLine()) {
-                String data = myReader.nextLine();
-                JMenuItem userData = new JMenuItem(data);
-                popupMenu.add(userData);
-                userData.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
+            try (Scanner myReader = new Scanner(logFile)) {
+                while (myReader.hasNextLine()) {
+                    String data = myReader.nextLine();
+                    JMenuItem userData = new JMenuItem(data);
+                    popupMenu.add(userData);
+                    userData.addActionListener((ActionEvent e) -> {
                         String selectedItem = e.getActionCommand();
                         selectedItem = selectedItem.replace("[", "");
                         selectedItem = selectedItem.replace("]", "");
@@ -884,22 +889,24 @@ public class ClientGUI extends javax.swing.JFrame {
                         Passtf.setText(itemArray[1]);
                         Servertf.setText(itemArray[2]);
                         Porttf.setText(itemArray[3]);
-
-                        System.out.println("Popup menu item ["+ selectedItem + "] was pressed.");
-                    }
-                });
+                    });
+                }
             }
-            myReader.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     private void queueTableRightClick(MouseEvent evt) {
+        ImageIcon icon;
         JPopupMenu queueMenu = new JPopupMenu();
         JMenuItem jmnQueueDownload = new JMenuItem("Download Queue");
+        icon = new ImageIcon(getClass().getClassLoader().getResource("img/download.png"));
+        jmnQueueDownload.setIcon(icon);
         queueMenu.add(jmnQueueDownload);
         JMenuItem jmnQueueDeleteSelected = new JMenuItem("Delete Selected");
+        icon = new ImageIcon(getClass().getClassLoader().getResource("img/delete.png"));
+        jmnQueueDeleteSelected.setIcon(icon);
         queueMenu.add(jmnQueueDeleteSelected);
         int row = queueTable.rowAtPoint(evt.getPoint());
         if(row >= 0 && row < queueTable.getRowCount()){
@@ -907,34 +914,23 @@ public class ClientGUI extends javax.swing.JFrame {
         }else{
             queueTable.clearSelection();
         }
-        
         queueMenu.show(this, getMousePosition().x, getMousePosition().y);
-        
-        jmnQueueDownload.addActionListener(new ActionListener(){
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                for(String s : queueList){
-                    File f = new File(s);
-                    String home = System.getProperty("user.home");
-                    try {
-                        downloadFile.deter(findFilePath(f.getName(), pathList), "", home+"/Downloads", ftpClient);
-                        notifyMessage = "Download "+f.getName()+" Successfull";
-                        notification(notifyMessage);
-                    } catch (IOException ex) {
-                        throw new RuntimeException(ex);
-                    }
+        jmnQueueDownload.addActionListener((ActionEvent e) -> {
+            for (String s1 : queueList) {
+                File f = new File(s1);
+                String home = System.getProperty("user.home");
+                try {
+                    downloadFile.deter(findFilePath(f.getName(), pathList), "", home+"/Downloads", ftpClient);
+                    notifyMessage = "Download "+f.getName()+" Successfull";
+                    notification(notifyMessage);
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
                 }
-                
             }
         });
-        jmnQueueDeleteSelected.addActionListener(new ActionListener(){
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                queueTableModel.removeRow(row);
-                queueList.remove(row);
-            }
+        jmnQueueDeleteSelected.addActionListener((ActionEvent e) -> {
+            queueTableModel.removeRow(row);
+            queueList.remove(row);
         });
     }
-
-    
 }

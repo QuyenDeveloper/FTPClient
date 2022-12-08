@@ -15,6 +15,7 @@ import org.apache.commons.net.ftp.FTPClient;
 public class renameFileorFolder {
     public boolean renaming(FTPClient ftpClient, String oldFile, String newFileName) {
         boolean success = false;
+        System.err.println(oldFile);
         String newFilePath = getParentFolder(oldFile);
         System.out.println(newFilePath);
         try {
@@ -44,6 +45,6 @@ public class renameFileorFolder {
     }
 
     private String getParentFolder(String filePath) {
-        return filePath.substring(0, filePath.lastIndexOf("/"));
+        return filePath.substring(0,filePath.lastIndexOf("\\"));
     }
 }

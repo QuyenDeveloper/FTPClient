@@ -38,24 +38,12 @@ public class downloadFile {
     }
 
     public void deter(String parentDir, String currentDir, String saveDir, FTPClient ftpClient) throws IOException {
-        parentDir = "\\" + parentDir.substring(parentDir.lastIndexOf("\\") + 1);
+        parentDir = parentDir.substring(parentDir.lastIndexOf("\\") + 1);
         if(parentDir.lastIndexOf(".") == -1){
             downLoadFileFromServer(parentDir, currentDir, saveDir, ftpClient);
         }else downloadPrefixFile(parentDir, saveDir, ftpClient);
     }
 
-    public String findDownloadFilePath(String fileName, List<String> l) {
-        String finalPath = null;
-        String[] result;
-        for (String a : l) {
-            result = a.split("/");
-            if (result[result.length - 1].equals(fileName)) {
-                finalPath = a;
-            }
-        }
-//        System.out.println(finalPath);
-        return finalPath;
-    }
 
     public void downLoadFileFromServer(String parentDir, String currentDir, String saveDir, FTPClient ftpClient) throws IOException {
         System.out.println("File " + currentDir + " is downloading...");
