@@ -58,11 +58,11 @@ public class connectServer {
                 return null;
             }
             boolean success = ftpClient.login(user, pass);
-//            if (!success) {
-//                System.out.println("Could not login to the server" + ftpClient.getReplyCode() + Arrays.toString(ftpClient.getReplyStrings()));
-//            } else {
-//                System.out.println("LOGGED IN SERVER");
-//            }
+            if (!success) {
+                System.out.println("Could not login to the server" + ftpClient.getReplyCode() + Arrays.toString(ftpClient.getReplyStrings()));
+            } else {
+                System.out.println("LOGGED IN SERVER");
+            }
         } catch (IOException ex) {
             System.out.println("Oops! Something wrong happened");
 //            ex.printStackTrace();

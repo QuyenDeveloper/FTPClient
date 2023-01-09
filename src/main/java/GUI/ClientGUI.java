@@ -615,19 +615,16 @@ public class ClientGUI extends javax.swing.JFrame {
         if (Usernametf.getText().length() == 0) {
             error = error + "User Name is mandatory\n";
             Usernametf.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 1, Color.red));
-//            Usernametf.setBackground(Color.red);
         }
 
         if (Passtf.getText().length() == 0) {
             error = error + "Password is mandatory\n";
             Passtf.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 1, Color.red));
-//            Passtf.setBackground(Color.red);
         }
 
         if (Servertf.getText().length() == 0) {
             error = error + "Server is mandatory\n";
             Servertf.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 1, Color.red));
-//            Servertf.setBackground(Color.red);
         }
         // Show the errorText in a message box, or in a label, or ...
         return error.isEmpty();
@@ -725,7 +722,7 @@ public class ClientGUI extends javax.swing.JFrame {
         JTree list = (JTree) e.getSource();
         int row = list.getRowForLocation(e.getPoint().x, e.getPoint().y);
         TreePath treePath = list.getPathForLocation(e.getPoint().x, e.getPoint().y);
-        
+        list.setSelectionRow(row);
         //format treePath thành 1 đường dẫn có thể dùng 
         String filePath = "";
         if (treePath != null) {
@@ -735,30 +732,96 @@ public class ClientGUI extends javax.swing.JFrame {
             filePath = filePath.replaceAll("/", "\\\\");
         }
         File fileName = new File(filePath);
+        menu.add(jmnNewFolder);
+        menu.add(jmnAddToQ);
+        menu.add(jmnremane);
+        menu.add(jmndownload);
+        menu.add(jmndelete);
+        
+        DefaultMutableTreeNode tempNode = (DefaultMutableTreeNode) list.getLastSelectedPathComponent();
+        
         if(treePath == null){
-            menu.add(jmnNewFolder);
-        }else{
-            menu.add(jmnNewFolder);
-            menu.add(jmnAddToQ);
-            menu.add(jmnremane);
-            menu.add(jmndownload);
-            menu.add(jmndelete);
+            jmnAddToQ.setEnabled(false);
+            jmndelete.setEnabled(false);
+            jmndownload.setEnabled(false);
+            jmnremane.setEnabled(false);
+        }else if(tempNode.isLeaf()){
+            jmnNewFolder.setEnabled(false);
         }
-        list.setSelectionRow(row);
         
         //menu sẽ được hiện ở vị trí con trỏ chuột
         menu.show(this, getMousePosition().x, getMousePosition().y);
         
+        String finalFilePath = filePath;
+        jmnNewFolder.addActionListener((ActionEvent e1) ->{
+            if (!ftpClient.isConnected()) {
+                notification("Please connect to a server");
+                return;
+            }
+            
+            list.expandPath(treePath);
+
+            DefaultMutableTreeNode tempNode2 = new DefaultMutableTreeNode("New Folder");
+            DefaultMutableTreeNode tempNode3 = new DefaultMutableTreeNode("temp");
+            tempNode2.add(tempNode3);
+            if(tempNode == null){
+                root.add(tempNode2);
+            }else{
+                tempNode.add(tempNode2);
+            }
+
+
+            TreePath newPath = getPath(tempNode2);
+
+            list.putClientProperty("JTree.lineStyle", "Angled");
+            JTextField textField = new JTextField();
+            TreeCellEditor editor = new DefaultCellEditor(textField);
+            list.setCellEditor(editor);
+            list.setEditable(true);
+            list.updateUI();
+
+            System.err.println(newPath.toString());
+            list.startEditingAtPath(newPath);
+            textField.addFocusListener(new FocusAdapter() {
+                @Override
+                public void focusLost(FocusEvent e2) {
+                    super.focusLost(e2);
+
+                    try {
+                        JTextField jtf = (JTextField) e2.getSource();
+                        String newFolderPath = finalFilePath+"\\"+jtf.getText();
+                        boolean success = ftpClient.makeDirectory(newFolderPath);
+//                        if (success){
+//                            notifyMessage = "Rename "+finalFilePath+" to /"+jtf.getText()+" Successfull";
+//                        }else notifyMessage = "Rename Fail";
+                        list.setEditable(false);
+                        notification(notifyMessage);
+                        refresh();
+                    } catch (IOException ex) {
+                        Exceptions.printStackTrace(ex);
+                    }
+                }
+            });
+        });
+        
+        
         //addToQueue btn function
         jmnAddToQ.addActionListener((ActionEvent e1) -> {
+            if (!ftpClient.isConnected()) {
+                notification("Please connect to a server");
+                return;
+            }
             try {
                 ftpClient.sendCommand("SIZE",fileName.toString());
                 String reply = ftpClient.getReplyString();
                 String[] r = reply.split(" ");
+                
                 queueList.add(fileName.toString());
                 DefaultTableModel model = (DefaultTableModel) queueTable.getModel();
                 model.addRow(new Object[]{System.getProperty("user.home") + "\\Downloads"+fileName, fileName, r[1] + " bytes"});
-                notification("Add "+fileName+" to Queue");
+                
+                notification("Added "+fileName+" to Queue");
+                
                 queueTable.setModel(model);
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
@@ -767,8 +830,11 @@ public class ClientGUI extends javax.swing.JFrame {
         
         
         //nút rename
-        String finalFilePath = filePath;
         jmnremane.addActionListener((ActionEvent e1) -> {
+            if (!ftpClient.isConnected()) {
+                notification("Please connect to a server");
+                return;
+            }
             DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) list.getLastSelectedPathComponent();
             list.putClientProperty("JTree.lineStyle", "Angled");
             JTextField textField = new JTextField();
@@ -793,22 +859,36 @@ public class ClientGUI extends javax.swing.JFrame {
             new Thread() {
                 @Override
                 public void run() {
-                    if (selectedNode.isLeaf()) {
-                        textField.setNavigationFilter(new filter(fileName.getName().lastIndexOf("."), textField));
+                    int t = fileName.getName().lastIndexOf(".");
+                    if(t == -1){
+                        textField.setNavigationFilter(new filter(textField.getText().length(), textField));
+                        textField.addKeyListener(new KeyAdapter() {
+                            @Override
+                            public void keyTyped(KeyEvent e3) {
+                                super.keyTyped(e3);
+                                textField.setNavigationFilter(new filter(textField.getText().length(), textField));
+                            }
+                        });
+                    }else{
+                        textField.setNavigationFilter(new filter(t, textField));
+                        textField.addKeyListener(new KeyAdapter() {
+                            @Override
+                            public void keyTyped(KeyEvent e3) {
+                                super.keyTyped(e3);
+                                textField.setNavigationFilter(new filter(textField.getText().lastIndexOf("."), textField));
+                            }
+                        });
                     }
-                    textField.addKeyListener(new KeyAdapter() {
-                        @Override
-                        public void keyTyped(KeyEvent e3) {
-                            super.keyTyped(e3);
-                            textField.setNavigationFilter(new filter(textField.getText().lastIndexOf("."), textField));
-                        }
-                    });
                 }
             }.start();
         });
 
         //nút download
         jmndownload.addActionListener((ActionEvent e1) -> {
+            if (!ftpClient.isConnected()) {
+                notification("Please connect to a server");
+                return;
+            }
             notification("Downloading");
             String home = System.getProperty("user.home");
             try {
@@ -823,13 +903,16 @@ public class ClientGUI extends javax.swing.JFrame {
         //nút delete
         String finalFilePath1 = filePath;
         jmndelete.addActionListener((ActionEvent e1) -> {
+            if (!ftpClient.isConnected()) {
+                notification("Please connect to a server");
+                return;
+            }
             DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) list.getLastSelectedPathComponent();
             boolean leaf = selectedNode.isLeaf();
             notifyMessage = deleteFileOrFolder.deleteDeter(finalFilePath1, ftpClient, leaf);
             notification(notifyMessage);
             selectedNode.removeFromParent();
             serverTree.updateUI();
-            refresh();
         });
     }
     //chức năng hiển thị menu ở client tree
@@ -871,6 +954,7 @@ public class ClientGUI extends javax.swing.JFrame {
         root.removeAllChildren();
         List<FTPFile> listFtpFiles = s.getListFileFromFTPServer("");
         addItemToTree(listFtpFiles);
+        serverTree.updateUI();
     }
     //thêm item vào quick connect tool bar
     private void addMenuItem(File logFile){
@@ -916,7 +1000,7 @@ public class ClientGUI extends javax.swing.JFrame {
         }
         queueMenu.show(this, getMousePosition().x, getMousePosition().y);
         jmnQueueDownload.addActionListener((ActionEvent e) -> {
-            for (String s1 : queueList) {
+            for (String s1 : queueList){
                 File f = new File(s1);
                 String home = System.getProperty("user.home");
                 try {
@@ -933,4 +1017,17 @@ public class ClientGUI extends javax.swing.JFrame {
             queueList.remove(row);
         });
     }
+    public static TreePath getPath(TreeNode treeNode) {
+    List<Object> nodes = new ArrayList<Object>();
+    if (treeNode != null) {
+      nodes.add(treeNode);
+      treeNode = treeNode.getParent();
+      while (treeNode != null) {
+        nodes.add(0, treeNode);
+        treeNode = treeNode.getParent();
+      }
+    }
+
+    return nodes.isEmpty() ? null : new TreePath(nodes.toArray());
+  }
 }
